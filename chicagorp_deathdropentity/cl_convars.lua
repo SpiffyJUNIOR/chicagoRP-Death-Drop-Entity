@@ -1,0 +1,1 @@
+print("chicagoRP NPC Shop client convars loaded!")
