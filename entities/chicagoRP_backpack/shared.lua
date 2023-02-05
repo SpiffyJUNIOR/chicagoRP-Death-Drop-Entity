@@ -12,5 +12,5 @@ end
 
 function ENT:SetupDataTables()
     self:NetworkVar("Entity", 0, "Victim")
-    self:NetworkVar("Int", 1, "TableIndex")
+    self:NetworkVar("String", 1, "VictimNick")
 end

@@ -164,7 +164,12 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
 
     if isempty(entname) or entname != "chicagoRP_backpack" then return end -- EZ anti-exploit
 
-    local tblindex = net.ReadInt(32)
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finalTable = util.JSONToTable(decompTable)
+    local victim = net.ReadString()
+    local tblindex = net.ReadInt(16)
 
     local screenwidth = ScrW()
     local screenheight = ScrH()
@@ -173,7 +178,7 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
     motherFrame:SetVisible(true)
     motherFrame:SetDraggable(true)
     motherFrame:ShowCloseButton(true)
-    motherFrame:SetTitle("Shop")
+    motherFrame:SetTitle(victim .. "'s Backpack")
     motherFrame:ParentToHUD()
     HideHUD = true
 
@@ -212,7 +217,7 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
     local LayoutPanel = ItemLayoutPanel(motherFrame, frameW, frameH)
 
     function LayoutPanel:PerformLayout(pnl, w, h)
-        for k, item in ipairs(chicagoRP.deathentindex[tblindex]) do
+        for k, item in ipairs(finalTable) do
             if isempty(k) then continue end
 
             local itemPanel = CreateItemPanel(LayoutPanel, item, 400, 100)
@@ -236,10 +241,7 @@ end)
 print("chicagoRP Death Drop Entity GUI loaded!")
 
 -- todo:
--- how do we get the ent table into the client?
--- recheck table structure
--- remove ents after a set time
--- jmod armor on players ragdoll (parent backpack to ragdoll ent)
+-- add ammo to dropped backpack
 
 
 

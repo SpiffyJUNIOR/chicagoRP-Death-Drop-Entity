@@ -40,6 +40,16 @@ local function CoolerDropWeapon(ply, wpn, ang, vel)
 	ply:DropWeapon(wpn, ang, vel)
 end
 
+local function DelayedBoxRemoval(index, ent)
+    timer.Simple(300, function()
+    	if IsValid(ent) then
+    		ent:Remove()
+
+    		chicagoRP.deathentindex[index] = nil
+    	end
+    end)
+end
+
 net.Receive("chicagoRP_deathdropentity_senditem", function(len, ply)
 	if !enabled:GetBool() or !IsValid(ply) or !ply:Alive() or ply:InVehicle() then return end
 
@@ -54,6 +64,8 @@ net.Receive("chicagoRP_deathdropentity_senditem", function(len, ply)
 	local spawnpos = entpos
 	local tblindex = net.ReadInt(32)
 	local itemindex = net.ReadInt(32)
+
+	if viewtrace.Entity:GetTableIndex() != tblindex then return end
 
 	spawnpos.x = spawnpos.x + 5
 
@@ -88,53 +100,85 @@ local function chicagoRP_PlayerDeath(victim, inflictor, attacker) -- add ammo an
     	table.insert(chicagoRP.deathentindex[indexnum].[k], weptbl)
     end
 
-    if !JMod then return end
-
     local itemindex = #chicagoRP.deathentindex[indexnum]
 
-    for k, _ in ipairs(victim.EZarmor.items) do
-	    local Info = victim.EZarmor.items[k]
+    local attinv = victim.ArcCW_AttInv or {}
 
-	    if !Info then return end
+    if !istable(attinv) then continue end
 
-	    local Specs = JMod.ArmorTable[Info.name]
+    local atttbl = table.GetKeys(attinv)
 
-        local armorEnt = ents.Create(Specs.ent)
-        armorEnt.ArmorDurability = Info.dur
+    table.sort(atttbl)
 
-        if Info.chrg then
-            armorEnt.ArmorCharges = table.FullCopy(Info.chrg)
-        end
+    for k, v in ipairs(atts) do
+    	local attid = ArcCW.AttachmentIDTable[ArcCW.AttachmentTable[v].ID]
 
-        armorEnt.EZID = ID
-        armorEnt:SetColor(Info.col)
-        armorEnt:SetSkin(Info._skin)
-        armorEnt:Spawn()
-        armorEnt:Activate()
+    	local atttbl = ArcCW.AttachmentTable[att]
 
-	    if Specs.plymdl then
-	        -- if this is a suit, we need to reset the player's model when he takes it off
-	        if victim.EZoriginalPlayerModel then
-	            JMod.SetPlayerModel(victim, victim.EZoriginalPlayerModel)
-	        end
+	    local ent = ents.Create("arccw_att_base")
+	    if !IsValid(ent) then continue end
 
-	        victim:SetColor(Color(255, 255, 255))
-	        victim.EZarmor.suited = false
-	        victim.EZarmor.bodygroups = nil
-	    end
+	    ent:SetNWInt("attid", attid)
 
-	    victim.EZarmor.items[ID] = nil
-	    victim:SetNW2Bool("chicagoRP_masked", false)
-	    victim:SetNW2Bool("MWParachuteEquipped", false)
+	    ent.GiveAttachments = {[att] = 1}
+	    ent.Model = atttbl.DroppedModel or atttbl.Model or "models/Items/BoxSRounds.mdl"
+	    ent.Icon = atttbl.Icon
+	    ent.PrintName = atttbl.PrintName or att
 
-    	local armortbl = duplicator.CopyEntTable(armorEnt)
+	    ent:Spawn()
 
-    	armorEnt:Remove()
+    	local enttbl = duplicator.CopyEntTable(armorEnt)
 
-    	table.insert(chicagoRP.deathentindex[indexnum].[itemindex + k], armortbl)
+    	ent:Remove()
+
+    	table.insert(chicagoRP.deathentindex[indexnum].[itemindex + k], enttbl)
     end
 
-    JMod.EZarmorSync(victim)
+    -- if !JMod then return end
+
+    -- for k, _ in ipairs(victim.EZarmor.items) do
+	   --  local Info = victim.EZarmor.items[k]
+
+	   --  if !Info then return end
+
+	   --  local Specs = JMod.ArmorTable[Info.name]
+
+    --     local armorEnt = ents.Create(Specs.ent)
+    --     armorEnt.ArmorDurability = Info.dur
+
+    --     if Info.chrg then
+    --         armorEnt.ArmorCharges = table.FullCopy(Info.chrg)
+    --     end
+
+    --     armorEnt.EZID = k
+    --     armorEnt:SetColor(Info.col)
+    --     armorEnt:SetSkin(Info._skin)
+    --     armorEnt:Spawn()
+    --     armorEnt:Activate()
+
+	   --  if Specs.plymdl then
+	   --      -- if this is a suit, we need to reset the player's model when he takes it off
+	   --      if victim.EZoriginalPlayerModel then
+	   --          JMod.SetPlayerModel(victim, victim.EZoriginalPlayerModel)
+	   --      end
+
+	   --      victim:SetColor(Color(255, 255, 255))
+	   --      victim.EZarmor.suited = false
+	   --      victim.EZarmor.bodygroups = nil
+	   --  end
+
+	   --  victim.EZarmor.items[ID] = nil
+	   --  victim:SetNW2Bool("chicagoRP_masked", false)
+	   --  victim:SetNW2Bool("MWParachuteEquipped", false)
+
+    -- 	local armortbl = duplicator.CopyEntTable(armorEnt)
+
+    -- 	armorEnt:Remove()
+
+    -- 	table.insert(chicagoRP.deathentindex[indexnum].[itemindex + k], armortbl)
+    -- end
+
+    -- JMod.EZarmorSync(victim)
 
     local spawnpos = pos
 
@@ -142,14 +186,17 @@ local function chicagoRP_PlayerDeath(victim, inflictor, attacker) -- add ammo an
 
     local droppedbox = ents.Create("chicagoRP_backpack")
     droppedbox:SetVictim(victim)
-    droppedbox:TableIndex(indexnum)
+    droppedbox:SetVictimNick(victim:Nick())
+    droppedbox:SetTableIndex(indexnum)
     droppedbox:SetPos(spawnpos)
     droppedbox:SetVelocity(vel)
     droppedbox:Spawn()
     droppedbox:Activate()
+
+    DelayedBoxRemoval(indexnum, ent)
 end
 
-hook.Add("DoPlayerDeath", "chicagoRP_deathdropentity_doplayerdeath", chicagoRP_PlayerDeath)
+hook.Add("PlayerDeath", "chicagoRP_deathdropentity_doplayerdeath", chicagoRP_PlayerDeath)
 
 concommand.Add("sv_chicagoRP_blacklist_add", function(ply, cmd, args)
 	if IsValid(ply) and !ply:IsAdmin() then return end
