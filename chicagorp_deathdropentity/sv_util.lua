@@ -4,6 +4,38 @@ util.AddNetworkString("chicagoRP_deathdropentity_senditem")
 
 local wpnblacklist = {} -- yes, blacklist code was taken from YuRaNnNzZZ. If you want this removed then please open an issue
 
+-- local ammotypes = {
+--     {
+--         ent = "item_ammo_ar2"
+--     }, {
+--         ent = "ar2altfire"
+--     }, {
+--         ent = "pistol"
+--     }, {
+--         ent = "smg1"
+--     }, {
+--         ent = "357"
+--     }, {
+--         ent = "crossbow"
+--     }, {
+--         ent = "buckshot"
+--     }, {
+--         ent = "rpg"
+--     }, {
+--         ent = "smg1_grenade"
+--     }, {
+--         ent = "grenade"
+--     }, {
+--         ent = "slam"
+--     }, {
+--         ent = "alyxgun"
+--     }, {
+--         ent = "sniperround"
+--     }, {
+--         ent = "sniperpenetratedround"
+--     }
+-- }
+
 local enabled = GetConVar("sv_chicagoRP_deathdropentity_enable")
 local droparmorcvar = GetConVar("jmod_armordropondeath")
 local blacklistcvar = GetConVar("sv_chicagoRP_weapon_blacklist")
@@ -58,14 +90,22 @@ net.Receive("chicagoRP_deathdropentity_senditem", function(len, ply)
 
 	if isempty(entname) or entname != "chicagoRP_backpack" then return end -- EZ anti-exploit
 
+	local tblindex = net.ReadInt(32)
+	local itemindex = net.ReadInt(32)
+
 	if chicagoRP.deathentindex[tblindex].[itemindex] == nil then return end
 
 	local entpos = viewtrace.Entity:GetPos()
 	local spawnpos = entpos
-	local tblindex = net.ReadInt(32)
-	local itemindex = net.ReadInt(32)
 
 	if viewtrace.Entity:GetTableIndex() != tblindex then return end
+
+	if itemindex.ammo == true then
+		ply:GiveAmmo(itemindex.quanity, itemindex.ammoid)
+		chicagoRP.deathentindex[tblindex].[itemindex] = nil
+
+		return
+	end
 
 	spawnpos.x = spawnpos.x + 5
 
@@ -100,14 +140,25 @@ local function chicagoRP_PlayerDeath(victim, inflictor, attacker) -- add ammo an
     	table.insert(chicagoRP.deathentindex[indexnum].[k], weptbl)
     end
 
-    local itemindex = #chicagoRP.deathentindex[indexnum]
+    local itemindex_ammo = #chicagoRP.deathentindex[indexnum]
+    local ammotbl = victim:GetAmmo()
 
+    if !istable(ammotbl) or table.IsEmpty(ammotbl) then continue end
+
+    for k, v in ipairs(ammotbl) do
+    	if isempty(game.GetAmmoName(k)) then continue end
+
+    	local contbl = {ammo = true, ammoid = k, quanity = v}
+
+    	table.insert(chicagoRP.deathentindex[indexnum].[itemindex_ammo + k], contbl)
+    end
+
+    local itemindex_atts = #chicagoRP.deathentindex[indexnum]
     local attinv = victim.ArcCW_AttInv or {}
 
-    if !istable(attinv) then continue end
+    if !istable(attinv) or table.IsEmpty(attinv) then continue end
 
     local atttbl = table.GetKeys(attinv)
-
     table.sort(atttbl)
 
     for k, v in ipairs(atts) do
@@ -125,13 +176,13 @@ local function chicagoRP_PlayerDeath(victim, inflictor, attacker) -- add ammo an
 	    ent.Icon = atttbl.Icon
 	    ent.PrintName = atttbl.PrintName or att
 
-	    ent:Spawn()
+	    -- ent:Spawn()
 
     	local enttbl = duplicator.CopyEntTable(armorEnt)
 
-    	ent:Remove()
+    	-- ent:Remove()
 
-    	table.insert(chicagoRP.deathentindex[indexnum].[itemindex + k], enttbl)
+    	table.insert(chicagoRP.deathentindex[indexnum].[itemindex_atts + k], enttbl)
     end
 
     -- if !JMod then return end
@@ -153,8 +204,8 @@ local function chicagoRP_PlayerDeath(victim, inflictor, attacker) -- add ammo an
     --     armorEnt.EZID = k
     --     armorEnt:SetColor(Info.col)
     --     armorEnt:SetSkin(Info._skin)
-    --     armorEnt:Spawn()
-    --     armorEnt:Activate()
+        -- armorEnt:Spawn()
+        -- armorEnt:Activate()
 
 	   --  if Specs.plymdl then
 	   --      -- if this is a suit, we need to reset the player's model when he takes it off
@@ -173,7 +224,7 @@ local function chicagoRP_PlayerDeath(victim, inflictor, attacker) -- add ammo an
 
     -- 	local armortbl = duplicator.CopyEntTable(armorEnt)
 
-    -- 	armorEnt:Remove()
+    	-- armorEnt:Remove()
 
     -- 	table.insert(chicagoRP.deathentindex[indexnum].[itemindex + k], armortbl)
     -- end

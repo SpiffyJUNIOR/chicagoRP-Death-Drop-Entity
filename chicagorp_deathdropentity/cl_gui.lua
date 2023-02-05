@@ -30,8 +30,14 @@ local function BlurBackground(panel)
     Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
 end
 
+local function AmmoName(tbl)
+    return game.GetAmmoName(tbl.ammoid)
+end
+
 local function EntityPrintName(enttbl)
     local printname = nil
+
+    if enttbl.ammo == true then return false end
 
     printname = enttbl.PrintName
 
@@ -109,15 +115,15 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
     local printname = EntityPrintName(itemtbl)
 
+    if printname == false then
+        printname = AmmoName(itemtbl)
+    end
+
     function itemButton:Paint(w, h)
         draw.DrawText(printname, "chicagoRP_NPCShop", (w / 2) - 10, 10, whitecolor, TEXT_ALIGN_LEFT)
         draw.RoundedBox(4, 0, 0, w, h, graycolor)
 
         return true
-    end
-
-    function itemButton:DoClick()
-        local expandedPanel = ExpandedItemPanel(itemtbl)
     end
 
     return itemButton
@@ -224,7 +230,7 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
 
             function itemPanel:DoClick()
                 net.Start("chicagoRP_deathdropentity_senditem")
-                net.WriteInt(tblindex, 32)
+                net.WriteInt(item, 32)
                 net.WriteInt(k, 32)
                 net.SendToServer()
 
