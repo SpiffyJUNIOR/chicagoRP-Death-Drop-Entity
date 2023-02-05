@@ -16,5 +16,12 @@ function ENT:Initialize()
     end
 end
 
-function ENT:Use()
+function ENT:Use(activator, caller) -- , useType, value
+    local tblindex = self:GetTableIndex()
+
+    if !IsValid(activator) or !isnumber(tblindex) then return end
+
+    net.Start("chicagoRP_deathdropentity_GUI")
+    net.WriteInt(tblindex, 32)
+    net.Send(activator)
 end

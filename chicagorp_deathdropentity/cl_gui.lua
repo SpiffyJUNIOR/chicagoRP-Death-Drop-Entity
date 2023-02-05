@@ -30,6 +30,19 @@ local function BlurBackground(panel)
     Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
 end
 
+local function EntityPrintName(enttbl)
+    local printname = nil
+
+    printname = enttbl.PrintName
+
+    if isempty(printname) then
+        print("Failed to parse entity printname, check your shop table!")
+        return "NULL"
+    end
+
+    return printname
+end
+
 local function SmoothScrollBar(vbar) -- why
     vbar.nInit = vbar.Init
     function vbar:Init()
@@ -86,6 +99,54 @@ local function SmoothScrollBar(vbar) -- why
     end
 end
 
+local function CreateItemPanel(parent, itemtbl, w, h)
+    if itemtbl == nil or parent == nil then return end
+
+    local itemButton = parent:Add("DButton")
+    itemButton:Dock(TOP)
+    itemButton:DockMargin(0, 0, 0, 10)
+    itemButton:SetSize(w, h)
+
+    local printname = EntityPrintName(itemtbl)
+
+    function itemButton:Paint(w, h)
+        draw.DrawText(printname, "chicagoRP_NPCShop", (w / 2) - 10, 10, whitecolor, TEXT_ALIGN_LEFT)
+        draw.RoundedBox(4, 0, 0, w, h, graycolor)
+
+        return true
+    end
+
+    function itemButton:DoClick()
+        local expandedPanel = ExpandedItemPanel(itemtbl)
+    end
+
+    return itemButton
+end
+
+local function ItemLayoutPanel(parent, w, h)
+    local itemScrollPanel = vgui.Create("DScrollPanel", parent)
+    itemScrollPanel:Dock(FILL)
+    itemScrollPanel:SetSize(w, h)
+
+    function itemScrollPanel:Paint(w, h)
+        return nil
+    end
+
+    local itemScrollBar = itemScrollPanel:GetVBar()
+
+    -- function itemScrollBar:Paint(w, h)
+    --     draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
+    -- end
+
+    -- function itemScrollBar.btnGrip:Paint(w, h)
+    --     draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
+    -- end
+
+    SmoothScrollBar(itemScrollBar)
+
+    return itemScrollPanel
+end
+
 hook.Add("HUDShouldDraw", "chicagoRP_deathdropentity_HideHUD", function()
     if HideHUD == true then
         return false
@@ -103,9 +164,7 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
 
     if isempty(entname) or entname != "chicagoRP_backpack" then return end -- EZ anti-exploit
 
-    local closebool = net.ReadBool()
-
-    if closebool == false then return end
+    local tblindex = net.ReadInt(32)
 
     local screenwidth = ScrW()
     local screenheight = ScrH()
@@ -117,6 +176,8 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
     motherFrame:SetTitle("Shop")
     motherFrame:ParentToHUD()
     HideHUD = true
+
+    local frameW, frameH = motherFrame:GetSize()
 
     motherFrame.lblTitle.Think = nil
 
@@ -148,10 +209,43 @@ net.Receive("chicagoRP_deathdropentity_GUI", function()
         -- BlurBackground(self)
     end
 
+    local LayoutPanel = ItemLayoutPanel(motherFrame, frameW, frameH)
+
+    function LayoutPanel:PerformLayout(pnl, w, h)
+        for k, item in ipairs(chicagoRP.deathentindex[tblindex]) do
+            if isempty(k) then continue end
+
+            local itemPanel = CreateItemPanel(LayoutPanel, item, 400, 100)
+
+            function itemPanel:DoClick()
+                net.Start("chicagoRP_deathdropentity_senditem")
+                net.WriteInt(tblindex, 32)
+                net.WriteInt(k, 32)
+                net.SendToServer()
+
+                LayoutPanel:InvalidateLayout()
+            end
+        end
+    end
+
+    LayoutPanel:InvalidateLayout()
+
     OpenMotherFrame = motherFrame
 end)
 
-print("chicagoRP NPC Shop GUI loaded!")
+print("chicagoRP Death Drop Entity GUI loaded!")
+
+-- todo:
+-- how do we get the ent table into the client?
+-- recheck table structure
+-- remove ents after a set time
+-- jmod armor on players ragdoll (parent backpack to ragdoll ent)
+
+
+
+
+
+
 
 
 
